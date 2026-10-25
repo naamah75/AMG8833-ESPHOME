@@ -1,0 +1,143 @@
+title: Thermal
+sections:
+- type: grid
+  cards:
+  - type: heading
+    heading: Thermal Camera
+    heading_style: title
+  - type: picture-entity
+    entity: camera.thermal_camera
+    camera_image: camera.thermal_camera
+- type: grid
+  cards:
+  - type: heading
+    heading: Presenza e persone
+    heading_style: title
+    icon: mdi:account-group
+  - type: entities
+    title: Rilevamento termico
+    show_header_toggle: false
+    entities:
+    - entity: binary_sensor.thermal_human_presence_estimate
+      name: Presenza umana stimata
+    - entity: sensor.thermal_estimated_people_count
+      name: Persone stimate
+    - entity: binary_sensor.thermal_presence_model_ready
+      name: Modello scena pronto
+    - entity: binary_sensor.thermal_thermal_contrast_detected
+      name: Contrasto termico (soglia semplice)
+  - type: button
+    entity: button.thermal_learn_empty_scene
+    name: Apprendi scena vuota
+    icon: mdi:home-search-outline
+    show_state: false
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.thermal_learn_empty_scene
+      confirmation:
+        text: Apprendere la scena attuale? Nessuno deve essere nell’inquadratura.
+  - type: markdown
+    content: Presenza e conteggio restano **sconosciuti** finché non apprendi la scena
+      vuota. Ripeti dopo un riavvio del Wemos o dopo averlo spostato. Il conteggio
+      è una stima di zone calde.
+- type: grid
+  cards:
+  - type: heading
+    heading: Temperature e compensazione continua
+    heading_style: title
+    icon: mdi:thermometer
+  - type: entities
+    title: Temperature del sensore
+    show_header_toggle: false
+    entities:
+    - entity: sensor.thermal_thermal_sensor_min
+      name: Minima scena (grezza)
+    - entity: sensor.thermal_thermal_sensor_max
+      name: Massima scena (grezza)
+    - entity: sensor.thermal_thermal_sensor_avg
+      name: Media scena (grezza)
+    - entity: sensor.thermal_thermal_sensor_temperature
+      name: Temperatura interna AMG8833
+  - type: entities
+    title: Compensazione continua
+    show_header_toggle: false
+    entities:
+    - entity: switch.thermal_automatic_temperature_compensation
+      name: Compensazione automatica
+    - entity: sensor.thermal_reference_temperature
+      name: Riferimento usato dal Wemos
+    - entity: sensor.thermal_temperature_reference_source
+      name: Sorgente del riferimento
+    - entity: sensor.thermal_scene_background_temperature
+      name: Fondo scena stimato (mediana)
+    - entity: sensor.thermal_automatic_temperature_offset
+      name: Offset automatico (°C)
+    - entity: number.thermal_thermal_temperature_offset
+      name: Correzione manuale aggiuntiva (°C)
+    - entity: sensor.thermal_total_temperature_offset
+      name: Offset totale sulla camera (°C)
+    - entity: sensor.thermal_temperature_compensation_status
+      name: Stato compensazione
+  - type: markdown
+    content: La compensazione segue continuamente **riferimento − mediana della scena**,
+      con una costante di tempo di **30 secondi**. Non serve un pulsante di calibrazione.
+      Mantiene l’ultimo offset se manca il riferimento o rileva presenza. La camera
+      usa **offset automatico + correzione manuale**, entro ±15 °C. È una normalizzazione
+      del fondo, non una misura assoluta garantita delle superfici.
+- type: grid
+  cards:
+  - type: heading
+    heading: Riferimento virtuale di prova
+    heading_style: title
+    icon: mdi:thermometer-lines
+  - type: entities
+    title: Simulazione temperatura
+    show_header_toggle: false
+    entities:
+    - entity: number.thermal_virtual_reference_setpoint
+      name: Imposta temperatura simulata (°C)
+    - entity: sensor.thermal_virtual_reference_temperature
+      name: Temperatura virtuale
+    - entity: automation.thermal_virtual_reference_temperature_control
+      name: Sincronizza controllo e sensore
+  - type: markdown
+    content: Il controllo aggiorna il sensore virtuale e il riferimento ricevuto dal
+      Wemos. **È una simulazione**, non una misura indipendente della temperatura
+      reale.
+  - type: heading
+    heading: Diagnostica e aggiornamenti
+    heading_style: subtitle
+  - type: grid
+    columns: 3
+    square: false
+    cards:
+    - type: button
+      entity: sensor.thermal_sensor_pixels
+      name: Pixel legacy
+      icon: mdi:code-json
+      show_state: false
+      tap_action:
+        action: more-info
+    - type: button
+      entity: sensor.thermal_sensor_raw_pixels
+      name: Pixel grezzi
+      icon: mdi:code-json
+      show_state: false
+      tap_action:
+        action: more-info
+    - type: button
+      entity: sensor.thermal_sensor_calibrated_pixels
+      name: Pixel corretti
+      icon: mdi:code-json
+      show_state: false
+      tap_action:
+        action: more-info
+  - type: entities
+    title: Integrazione
+    show_header_toggle: false
+    entities:
+    - entity: update.thermal_vision_amg8833_raw16_update
+      name: Aggiornamento Thermal Vision
+path: thermal

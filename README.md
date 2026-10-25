@@ -75,6 +75,10 @@ This is **scene normalization**, not an absolute radiometric calibration. Air an
 
 Use `sensor.thermal_sensor_calibrated_pixels` for the companion camera and exclude this frame entity from the recorder. Original min/max/average sensors remain raw.
 
+### Complete Home Assistant examples
+
+See [the Home Assistant test setup](examples/home-assistant/README.md) for a persistent virtual temperature sensor, editable setpoint, synchronization automation, ESPHome reference snippet and a complete dashboard view. No tokens, Wi-Fi credentials, deployment IP addresses or captured camera images are included.
+
 ### Optional temperature references
 
 Set `local_temperature_sensor` to any ESPHome temperature sensor ID; set `homeassistant_temperature_sensor` to an imported HA sensor ID. A finite local value in -20..60 Â°C has priority; otherwise a valid HA value is selected. If neither is valid, calibration is refused and the source reads Unavailable. Presence and manual trim continue to work without a reference; the automatic contribution holds its last value (zero before the first valid reference).

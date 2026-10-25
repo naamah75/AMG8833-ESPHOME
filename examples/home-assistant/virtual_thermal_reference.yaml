@@ -1,0 +1,17 @@
+version: 1
+devices:
+  thermal_test_reference:
+    - platform: sensor
+      name: Thermal Virtual Reference Temperature
+      class: temperature
+      unit_of_measurement: "°C"
+      initial_value: "22.0"
+      persistent: true
+    - platform: number
+      name: Thermal Virtual Reference Setpoint
+      class: temperature
+      unit_of_measurement: "°C"
+      initial_value: "22.0"
+      persistent: true
+      min: 0
+      max: 50

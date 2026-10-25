@@ -1,0 +1,9 @@
+# Merge with amg8833.yaml; replace entity_id if your HA entity differs.
+sensor:
+  - platform: homeassistant
+    id: ha_room_temperature
+    entity_id: sensor.thermal_virtual_reference_temperature
+    internal: true
+
+amg8833:
+  homeassistant_temperature_sensor: ha_room_temperature

@@ -1,0 +1,18 @@
+- id: thermal_virtual_reference_sync
+  alias: Thermal - Virtual reference temperature control
+  description: 'Simulation only: mirror virtual number into the virtual temperature
+    reference sensor.'
+  trigger:
+  - platform: state
+    entity_id: number.thermal_virtual_reference_setpoint
+  condition:
+  - condition: template
+    value_template: '{{ is_number(states(''number.thermal_virtual_reference_setpoint''))
+      }}'
+  action:
+  - service: virtual.set
+    target:
+      entity_id: sensor.thermal_virtual_reference_temperature
+    data:
+      value: '{{ states(''number.thermal_virtual_reference_setpoint'') }}'
+  mode: restart
