@@ -75,6 +75,14 @@ int main() {
     assert(!model.process(invalid, 13000).valid);
   }
   {
+    auto model = ready_model();
+    const auto warmer_room = scene(25);
+    for (uint32_t t = 1000; t <= 10000; t += 1000) assert(model.process(warmer_room, t).count == 0);
+    auto target = warmer_room; blob(target, 9, 34);
+    for (uint32_t t = 11000; t <= 15000; t += 1000) model.process(target, t);
+    assert(model.process(target, 16000).count == 1);
+  }
+  {
     // Learning explicitly clears the old estimate; no implicit warm-up learning.
     auto model = ready_model(); auto target = scene(); blob(target, 9);
     for (uint32_t t = 1000; t <= 4000; t += 1000) model.process(target, t);

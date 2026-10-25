@@ -58,10 +58,19 @@ class PresenceEstimator {
     const float dt = std::min(elapsed * 0.001f, 5.0f);
     const float alpha = 1.0f - std::exp(-dt / 0.7f);
     std::array<bool, 64> foreground{};
+    std::array<float, 64> residuals{};
     for (size_t i = 0; i < 64; ++i) {
       smooth_[i] += alpha * (frame[i] - smooth_[i]);
+      residuals[i] = smooth_[i] - background_[i];
+    }
+    // Reject scene-wide temperature drift using the majority background. This
+    // assumes targets occupy less than half the view, as the blob limits do.
+    auto sorted_residuals = residuals;
+    std::sort(sorted_residuals.begin(), sorted_residuals.end());
+    const float common_delta = (sorted_residuals[31] + sorted_residuals[32]) * 0.5f;
+    for (size_t i = 0; i < 64; ++i) {
       const float corrected = smooth_[i] + offset;
-      foreground[i] = smooth_[i] - background_[i] >= settings.delta &&
+      foreground[i] = residuals[i] - common_delta >= settings.delta &&
           corrected >= settings.minimum_temperature && corrected <= settings.maximum_temperature;
     }
     std::array<bool, 64> visited{};
