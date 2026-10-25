@@ -6,6 +6,12 @@ on:
 permissions:
   contents: read
 jobs:
+  algorithm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ -std=c++17 -Wall -Wextra -Werror -I. tests/test_presence.cpp -o /tmp/test-presence
+      - run: /tmp/test-presence
   compile:
     runs-on: ubuntu-latest
     steps:

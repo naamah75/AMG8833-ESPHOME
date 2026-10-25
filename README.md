@@ -46,9 +46,9 @@ recorder:
       - sensor.thermal_sensor_pixels
 ```
 
-`Sensor Raw Pixels` publishes 128 AMG8833 register bytes as Base64, preserving signed temperatures and 0.25 °C resolution. `Sensor Pixels` retains the original 64-byte format, clamped to 0..63.75 °C for compatibility with the original Thermal decoder. Do not select the raw entity with an unpatched upstream decoder.
+`Sensor Raw Pixels` publishes 128 AMG8833 register bytes as Base64, preserving signed temperatures and 0.25 Â°C resolution. `Sensor Pixels` retains the original 64-byte format, clamped to 0..63.75 Â°C for compatibility with the original Thermal decoder. Do not select the raw entity with an unpatched upstream decoder.
 
-The component reads the array once per interval, checks I2C errors and publishes minimum, maximum, average and thermistor temperatures. The binary sensor uses a 4 °C max/min contrast and a 5-second delayed off; it is a heuristic and does not reliably identify people.
+The component reads the array once per interval, checks I2C errors and publishes minimum, maximum, average and thermistor temperatures. The binary sensor uses a 4 Â°C max/min contrast and a 5-second delayed off; it is a heuristic and does not reliably identify people.
 
 ## Migration
 
@@ -57,6 +57,61 @@ The removed `platform: custom` declarations are replaced by a local external com
 On Windows, if toolchain paths exceed the compiler's path limit, set `ESPHOME_ARDUINO8266_PREFIX` to a short writable directory before compiling.
 
 No Wi-Fi passwords, compiled firmware with embedded credentials, device flash backups or Home Assistant tokens are distributed here.
+
+## Presence and temperature calibration (experimental)
+
+The default configuration adds:
+
+- **Human Presence Estimate** and **Estimated People Count**: connected warm regions relative to an explicitly learned empty scene, with temporal smoothing and confirmation/release delays.
+- **Presence Model Ready**: false after boot until you press **Learn Empty Scene** while nobody is in view. Relearn after reboot or moving the sensor. The background is held in RAM, not flash.
+- **Thermal Temperature Offset**: a persistent manual additive correction in °C.
+- **Calibrate Thermal Temperature**: computes that offset from an independent reference, only on an explicit button press and only with a recent, sufficiently uniform frame.
+- **Reference Temperature** and **Temperature Reference Source**: indicate the reference actually available.
+- **Sensor Calibrated Pixels**: corrected full-resolution frames; original raw and legacy frames and the original temperature statistics remain unchanged.
+
+For a corrected thermal camera, select `sensor.thermal_sensor_calibrated_pixels` in the companion integration's `pixel_sensor`. Exclude this pixel entity from the recorder too.
+
+### Optional temperature references
+
+Set `local_temperature_sensor` to any ESPHome temperature sensor ID; set `homeassistant_temperature_sensor` to an imported HA sensor ID. A finite local value in -20..60 °C has priority; otherwise a valid HA value is selected. If neither is valid, calibration is refused and the source reads Unavailable. Presence and manual offset continue to work without a reference.
+
+Merge the examples in [`examples/`](examples/) into the main YAML. The SHT3x example supports SHT30/SHT31 on the existing I2C bus. Other local devices can be used by changing the driver and retaining the sensor ID. Add a timeout filter to physical sensors so an old value becomes invalid when communication fails. HA values follow state events: choose an entity that becomes unavailable when its physical sensor fails. A finite but stale HA state cannot be distinguished automatically from an unchanged valid temperature. Configure HA-side availability appropriately.
+
+No independent reference was present on the test installation, so the supplied default does not select a nonexistent entity or treat the AMG8833's own thermistor as an independent calibration reference. Add your physical sensor or configure the HA entity to enable reference calibration.
+
+### Calibration procedure
+
+1. Allow the sensor and reference to equilibrate.
+2. Fill the view with a uniform, high-emissivity surface at the independently measured reference temperature. Room air and arbitrary objects are not interchangeable temperature standards.
+3. Press **Calibrate Thermal Temperature**. The frame spread must be at most 1.5 °C and the calculated offset within ±15 °C; otherwise the request is rejected in the device log.
+4. Use the corrected pixel entity in the camera. This is a one-point offset correction, not a factory calibration or an emissivity correction.
+5. Restore the normal field of view, remove people from it and press **Learn Empty Scene**.
+
+Calibration changes neither the background model nor raw measurements. The manual offset is restored after reboot. The empty-scene model must be learned again.
+
+### Detection parameters
+
+```yaml
+amg8833:
+  presence:
+    occupancy:
+      name: Human Presence Estimate
+    people_count:
+      name: Estimated People Count
+    ready:
+      name: Presence Model Ready
+    delta: 2.5
+    minimum_temperature: 20
+    maximum_temperature: 40
+    minimum_pixels: 3
+    maximum_pixels: 32
+    confirmation: 2s
+    release: 10s
+```
+
+The count is a **warm-target estimate**, not a validated human classifier or a doorway counter. Two touching targets may merge; a person's disconnected warm parts may split; pets and newly introduced warm objects can trigger it. Distance, clothing, ambient temperature and mounting determine the pixel footprint. Targets that fill most of the view may be rejected by the maximum-pixel setting. Do not use it where reliable safety-critical occupancy is required.
+
+The algorithm freezes background adaptation while foreground is present, so a stationary target is not intentionally absorbed. Communication errors invalidate presence/count rather than reporting an empty room. Synthetic tests cover core behavior; a real multi-person accuracy assessment requires the final mounting position and labelled observations.
 
 ## Attribution
 

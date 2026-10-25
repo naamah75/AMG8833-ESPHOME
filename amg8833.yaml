@@ -2,6 +2,10 @@ esphome:
   name: amg8833
   friendly_name: Thermal
   min_version: 2026.10.0
+  on_boot:
+    priority: -100
+    then:
+      - lambda: id(thermal_array).set_temperature_offset(id(thermal_temperature_offset).state);
 
 esp8266:
   board: d1_mini_pro
@@ -27,8 +31,22 @@ i2c:
   frequency: 100kHz
 
 amg8833:
+  id: thermal_array
   address: 0x69
   update_interval: 1s
+  calibrated_pixels:
+    name: Sensor Calibrated Pixels
+  reference_temperature:
+    name: Reference Temperature
+  reference_source:
+    name: Temperature Reference Source
+  presence:
+    occupancy:
+      name: Human Presence Estimate
+    people_count:
+      name: Estimated People Count
+    ready:
+      name: Presence Model Ready
   raw_pixels:
     name: Sensor Raw Pixels
   pixels:
@@ -54,3 +72,33 @@ binary_sensor:
       return id(thermal_max).state - id(thermal_min).state > 4.0f;
     filters:
       - delayed_off: 5s
+
+number:
+  - platform: template
+    name: Thermal Temperature Offset
+    id: thermal_temperature_offset
+    unit_of_measurement: "°C"
+    min_value: -15
+    max_value: 15
+    step: 0.25
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+    set_action:
+      - lambda: id(thermal_array).set_temperature_offset(x);
+
+button:
+  - platform: template
+    name: Learn Empty Scene
+    on_press:
+      - lambda: id(thermal_array).learn_empty_scene();
+  - platform: template
+    name: Calibrate Thermal Temperature
+    on_press:
+      - lambda: |-
+          const float offset = id(thermal_array).calculate_temperature_offset();
+          if (std::isfinite(offset)) {
+            auto call = id(thermal_temperature_offset).make_call();
+            call.set_value(offset);
+            call.perform();
+          }

@@ -1,0 +1,9 @@
+# Merge into amg8833.yaml; use an independent, available reference entity in Celsius.
+sensor:
+  - platform: homeassistant
+    id: ha_room_temperature
+    entity_id: sensor.replace_with_your_room_temperature
+    internal: true
+
+amg8833:
+  homeassistant_temperature_sensor: ha_room_temperature

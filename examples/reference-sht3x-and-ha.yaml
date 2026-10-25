@@ -1,0 +1,20 @@
+# Merge these sections into amg8833.yaml; do not replace the whole configuration.
+# This example supports an optional local SHT30/SHT31 at 0x44, then an HA fallback.
+# Change entity_id to an independent room-temperature sensor in your HA.
+sensor:
+  - platform: sht3xd
+    address: 0x44
+    update_interval: 30s
+    temperature:
+      id: local_room_temperature
+      name: Local Room Temperature
+      filters:
+        - timeout: 90s
+  - platform: homeassistant
+    id: ha_room_temperature
+    entity_id: sensor.replace_with_your_room_temperature
+    internal: true
+
+amg8833:
+  local_temperature_sensor: local_room_temperature
+  homeassistant_temperature_sensor: ha_room_temperature
