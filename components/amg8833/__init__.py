@@ -16,6 +16,14 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional("homeassistant_temperature_sensor"): cv.use_id(sensor.Sensor),
     cv.Optional("reference_temperature"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2, device_class="temperature"),
     cv.Optional("reference_source"): text_sensor.text_sensor_schema(entity_category="diagnostic"),
+    cv.Optional("auto_compensation"): cv.Schema({
+        cv.Optional("time_constant", default="30s"): cv.positive_time_period_seconds,
+        cv.Optional("maximum_offset", default=10): cv.float_range(min=0.25, max=15),
+        cv.Required("automatic_offset"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2),
+        cv.Required("total_offset"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2),
+        cv.Required("background_temperature"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2, device_class="temperature"),
+        cv.Required("status"): text_sensor.text_sensor_schema(entity_category="diagnostic"),
+    }),
     cv.Optional("presence"): cv.Schema({
         cv.Required("occupancy"): binary_sensor.binary_sensor_schema(device_class="occupancy"),
         cv.Required("people_count"): sensor.sensor_schema(accuracy_decimals=0, state_class="measurement"),
@@ -28,10 +36,10 @@ CONFIG_SCHEMA = cv.Schema({
         cv.Optional("confirmation", default="2s"): cv.positive_time_period_milliseconds,
         cv.Optional("release", default="10s"): cv.positive_time_period_milliseconds,
     }),
-    cv.Required("temperature"): sensor.sensor_schema(unit_of_measurement="Â°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
-    cv.Required("minimum"): sensor.sensor_schema(unit_of_measurement="Â°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
-    cv.Required("maximum"): sensor.sensor_schema(unit_of_measurement="Â°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
-    cv.Required("average"): sensor.sensor_schema(unit_of_measurement="Â°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
+    cv.Required("temperature"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
+    cv.Required("minimum"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
+    cv.Required("maximum"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
+    cv.Required("average"): sensor.sensor_schema(unit_of_measurement="°C", accuracy_decimals=2, device_class="temperature", state_class="measurement"),
 }).extend(cv.polling_component_schema("1s")).extend(i2c.i2c_device_schema(0x69))
 
 async def to_code(config):
@@ -70,3 +78,13 @@ async def to_code(config):
             cg.add(getattr(var, "set_presence_" + key)(pres[key]))
         cg.add(var.set_presence_confirmation(pres["confirmation"].total_milliseconds))
         cg.add(var.set_presence_release(pres["release"].total_milliseconds))
+
+    if "auto_compensation" in config:
+        comp = config["auto_compensation"]
+        cg.add(var.set_compensation_time_constant(comp["time_constant"].total_seconds))
+        cg.add(var.set_compensation_maximum_offset(comp["maximum_offset"]))
+        for key in ("automatic_offset", "total_offset", "background_temperature"):
+            cg.add(getattr(var, "set_" + key)(await sensor.new_sensor(comp[key])))
+        cg.add(var.set_compensation_status(await text_sensor.new_text_sensor(comp["status"])))
+    else:
+        cg.add(var.set_auto_enabled(False))

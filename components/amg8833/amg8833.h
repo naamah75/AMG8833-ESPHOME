@@ -8,6 +8,7 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include <array>
 #include "presence.h"
+#include "compensation.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 
 namespace esphome { namespace amg8833 {
@@ -36,6 +37,13 @@ class AMG8833 : public PollingComponent, public i2c::I2CDevice {
   void set_presence_confirmation(uint32_t v) { estimator_.settings.confirmation_ms = v; }
   void set_presence_release(uint32_t v) { estimator_.settings.release_ms = v; }
   void set_temperature_offset(float v) { if (std::isfinite(v) && std::abs(v) <= 15) offset_ = v; }
+  void set_auto_enabled(bool v) { compensation_.enabled = v; }
+  void set_compensation_time_constant(float v) { compensation_.time_constant_seconds = v; }
+  void set_compensation_maximum_offset(float v) { compensation_.maximum_offset = v; }
+  void set_automatic_offset(sensor::Sensor *s) { automatic_offset_sensor_ = s; }
+  void set_total_offset(sensor::Sensor *s) { total_offset_sensor_ = s; }
+  void set_background_temperature(sensor::Sensor *s) { background_sensor_ = s; }
+  void set_compensation_status(text_sensor::TextSensor *s) { compensation_status_ = s; }
   void learn_empty_scene() {
     estimator_.request_empty_scene();
     ESP_LOGI(TAG, "Empty scene learning requested; keep the field of view empty");
@@ -84,7 +92,7 @@ class AMG8833 : public PollingComponent, public i2c::I2CDevice {
     if (raw_pixels_ != nullptr) raw_pixels_->publish_state(base64_encode(raw.data(), raw.size()));
     have_frame_ = true;
     last_frame_ms_ = millis();
-    const auto result = estimator_.process(last_frame_values_, last_frame_ms_, offset_);
+    const auto result = estimator_.process(last_frame_values_, last_frame_ms_, effective_offset_);
     if (presence_ready_ != nullptr) presence_ready_->publish_state(result.ready);
     if (result.ready) {
       if (presence_ != nullptr) presence_->publish_state(result.count > 0);
@@ -99,10 +107,17 @@ class AMG8833 : public PollingComponent, public i2c::I2CDevice {
     if (reference_temperature_ != nullptr) reference_temperature_->publish_state(reference);
     if (reference_source_ != nullptr) reference_source_->publish_state(
         valid_reference(local) ? "Local sensor" : (valid_reference(remote) ? "Home Assistant" : "Unavailable"));
+    const auto correction = compensation_.update(last_frame_values_, reference, offset_,
+        result.foreground || result.count > 0, result.ready, last_frame_ms_);
+    effective_offset_ = correction.total_offset;
+    if (automatic_offset_sensor_ != nullptr) automatic_offset_sensor_->publish_state(correction.automatic_offset);
+    if (total_offset_sensor_ != nullptr) total_offset_sensor_->publish_state(correction.total_offset);
+    if (background_sensor_ != nullptr) background_sensor_->publish_state(correction.background);
+    if (compensation_status_ != nullptr) compensation_status_->publish_state(correction.status);
     if (calibrated_pixels_ != nullptr) {
       std::array<uint8_t, 128> corrected{};
       for (size_t i = 0; i < 64; ++i) {
-        const float value = std::max(-511.75f, std::min(511.75f, last_frame_values_[i] + offset_));
+        const float value = std::max(-511.75f, std::min(511.75f, last_frame_values_[i] + effective_offset_));
         uint16_t encoded = static_cast<uint16_t>(std::round(std::abs(value) * 4));
         if (value < 0) encoded |= 0x800;
         corrected[i*2] = encoded & 0xFF;
@@ -120,12 +135,17 @@ class AMG8833 : public PollingComponent, public i2c::I2CDevice {
   void frame_error_() {
     status_set_warning();
     have_frame_ = false;
+    if (compensation_status_ != nullptr) compensation_status_->publish_state("Frame unavailable (holding)");
     if (presence_ != nullptr) presence_->invalidate_state();
     if (people_count_ != nullptr) people_count_->publish_state(NAN);
     if (presence_ready_ != nullptr) presence_ready_->publish_state(false);
     if (calibrated_pixels_ != nullptr) calibrated_pixels_->publish_state("");
   }
   PresenceEstimator estimator_;
+  SceneCompensation compensation_;
+  float effective_offset_{0};
+  sensor::Sensor *automatic_offset_sensor_{nullptr}, *total_offset_sensor_{nullptr}, *background_sensor_{nullptr};
+  text_sensor::TextSensor *compensation_status_{nullptr};
   std::array<float, 64> last_frame_values_{};
   uint32_t last_frame_ms_{0};
   bool have_frame_{false};

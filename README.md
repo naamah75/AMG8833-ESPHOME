@@ -58,36 +58,40 @@ On Windows, if toolchain paths exceed the compiler's path limit, set `ESPHOME_AR
 
 No Wi-Fi passwords, compiled firmware with embedded credentials, device flash backups or Home Assistant tokens are distributed here.
 
-## Presence and temperature calibration (experimental)
+## Presence and continuous scene compensation (experimental)
 
 The default configuration adds:
 
-- **Human Presence Estimate** and **Estimated People Count**: connected warm regions relative to an explicitly learned empty scene, with temporal smoothing and confirmation/release delays.
-- **Presence Model Ready**: false after boot until you press **Learn Empty Scene** while nobody is in view. Relearn after reboot or moving the sensor. The background is held in RAM, not flash.
-- **Thermal Temperature Offset**: a persistent manual additive correction in Â°C.
-- **Calibrate Thermal Temperature**: computes that offset from an independent reference, only on an explicit button press and only with a recent, sufficiently uniform frame.
-- **Reference Temperature** and **Temperature Reference Source**: indicate the reference actually available.
-- **Sensor Calibrated Pixels**: corrected full-resolution frames; original raw and legacy frames and the original temperature statistics remain unchanged.
+- **Human Presence Estimate**, **Estimated People Count**, and **Presence Model Ready**. Press **Learn Empty Scene** in an empty field of view to initialize the presence model after boot or moving the sensor.
+- **Automatic Temperature Compensation**: an on/off switch, enabled by default.
+- **Automatic Temperature Offset**, **Total Temperature Offset**, **Scene Background Temperature**, and **Temperature Compensation Status**.
+- **Thermal Temperature Offset**: a persistent manual trim, added to the automatic correction.
+- **Reference Temperature** and **Temperature Reference Source**: indicate the reference selected.
+- **Sensor Calibrated Pixels**: continuously corrected frames. Raw/legacy pixel data and original temperature statistics remain unchanged.
 
-For a corrected thermal camera, select `sensor.thermal_sensor_calibrated_pixels` in the companion integration's `pixel_sensor`. Exclude this pixel entity from the recorder too.
+The automatic target is `reference temperature - median scene temperature`. It follows this target using a 30-second time constant, limits its own correction to ±10 °C and limits the combined correction to ±15 °C. It holds the last automatic offset while a foreground/presence signal exists or the reference/frame is invalid. Disabling it removes the automatic contribution; manual trim remains active. The automatic offset is relearned after reboot and is not written to flash every frame.
+
+This is **scene normalization**, not an absolute radiometric calibration. Air and visible surfaces can have different real temperatures; forcing their readings to match does not establish absolute object temperatures. The median assumes most pixels represent background. Before the presence model is learned it still tracks the median, but status explicitly says `Tracking (presence uninitialized)` and presence-based freezing is not available. Large targets and undetected occupants can bias the median; initialize and evaluate the presence model in the real mounting position.
+
+Use `sensor.thermal_sensor_calibrated_pixels` for the companion camera and exclude this frame entity from the recorder. Original min/max/average sensors remain raw.
 
 ### Optional temperature references
 
-Set `local_temperature_sensor` to any ESPHome temperature sensor ID; set `homeassistant_temperature_sensor` to an imported HA sensor ID. A finite local value in -20..60 Â°C has priority; otherwise a valid HA value is selected. If neither is valid, calibration is refused and the source reads Unavailable. Presence and manual offset continue to work without a reference.
+Set `local_temperature_sensor` to any ESPHome temperature sensor ID; set `homeassistant_temperature_sensor` to an imported HA sensor ID. A finite local value in -20..60 Â°C has priority; otherwise a valid HA value is selected. If neither is valid, calibration is refused and the source reads Unavailable. Presence and manual trim continue to work without a reference; the automatic contribution holds its last value (zero before the first valid reference).
 
 Merge the examples in [`examples/`](examples/) into the main YAML. The SHT3x example supports SHT30/SHT31 on the existing I2C bus. Other local devices can be used by changing the driver and retaining the sensor ID. Add a timeout filter to physical sensors so an old value becomes invalid when communication fails. HA values follow state events: choose an entity that becomes unavailable when its physical sensor fails. A finite but stale HA state cannot be distinguished automatically from an unchanged valid temperature. Configure HA-side availability appropriately.
 
 No independent reference was present on the test installation, so the supplied default does not select a nonexistent entity or treat the AMG8833's own thermistor as an independent calibration reference. Add your physical sensor or configure the HA entity to enable reference calibration.
 
-### Calibration procedure
+### Continuous operation
 
-1. Allow the sensor and reference to equilibrate.
-2. Fill the view with a uniform, high-emissivity surface at the independently measured reference temperature. Room air and arbitrary objects are not interchangeable temperature standards.
-3. Press **Calibrate Thermal Temperature**. The frame spread must be at most 1.5 Â°C and the calculated offset within Â±15 Â°C; otherwise the request is rejected in the device log.
-4. Use the corrected pixel entity in the camera. This is a one-point offset correction, not a factory calibration or an emissivity correction.
-5. Restore the normal field of view, remove people from it and press **Learn Empty Scene**.
+1. Select a local temperature sensor and/or an HA reference as described above.
+2. Leave **Automatic Temperature Compensation** enabled; no temperature-calibration button is required.
+3. Observe automatic offset, total offset, background estimate and compensation status.
+4. Use the manual trim only for an additional deliberate correction.
+5. Learn an empty scene separately for presence detection and presence-based freezing. This background model is in RAM and must be learned again after reboot.
 
-Calibration changes neither the background model nor raw measurements. The manual offset is restored after reboot. The empty-scene model must be learned again.
+A simulated HA temperature reference is useful for testing the control loop, but is not a physical calibration reference. The older guarded one-shot C++ helper remains for existing custom configurations; its button is no longer in the default YAML.
 
 ### Detection parameters
 

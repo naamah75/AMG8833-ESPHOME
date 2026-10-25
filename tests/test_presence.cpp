@@ -1,4 +1,5 @@
 #include "components/amg8833/presence.h"
+#include "components/amg8833/compensation.h"
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -99,6 +100,29 @@ int main() {
   assert(std::isnan(calibration_offset(scene(20), 50)));
   auto uneven = scene(); uneven[0] = 30;
   assert(std::isnan(calibration_offset(uneven, 22)));
+  {
+    esphome::amg8833::SceneCompensation comp;
+    auto frame = scene(20);
+    auto r = comp.update(frame, 22, 0, false, true, 0);
+    assert(r.automatic_offset > 0 && r.automatic_offset < 0.2f);
+    for (uint32_t t = 1000; t <= 180000; t += 1000) r = comp.update(frame, 22, 0, false, true, t);
+    assert(std::abs(r.automatic_offset - 2) < .01f);
+    assert(std::abs(r.total_offset - 2) < .01f);
+    const float held = r.automatic_offset;
+    r = comp.update(frame, 30, 0, true, true, 181000);
+    assert(r.automatic_offset == held);
+    r = comp.update(frame, NAN, 1, false, true, 182000);
+    assert(r.automatic_offset == held && std::abs(r.total_offset - (held + 1)) < .001f);
+    comp.enabled = false;
+    r = comp.update(frame, 22, 1, false, true, 183000);
+    assert(r.automatic_offset == 0 && r.total_offset == 1);
+    comp.enabled = true;
+    for (uint32_t t = 184000; t <= 400000; t += 1000) r = comp.update(frame, 60, 15, false, true, t);
+    assert(r.automatic_offset <= 10 && r.total_offset <= 15);
+    frame[0] = NAN;
+    r = comp.update(frame, 22, 0, false, true, 401000);
+    assert(std::isnan(r.background));
+  }
   std::cout << "PASS: warm targets, stationary presence, separated count, noise, static heater, "
                "timing, invalid frames, relearning, reference priority and calibration guards\n";
 }

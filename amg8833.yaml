@@ -6,6 +6,7 @@ esphome:
     priority: -100
     then:
       - lambda: id(thermal_array).set_temperature_offset(id(thermal_temperature_offset).state);
+      - lambda: id(thermal_array).set_auto_enabled(id(automatic_temperature_compensation).state);
 
 esp8266:
   board: d1_mini_pro
@@ -34,6 +35,17 @@ amg8833:
   id: thermal_array
   address: 0x69
   update_interval: 1s
+  auto_compensation:
+    time_constant: 30s
+    maximum_offset: 10
+    automatic_offset:
+      name: Automatic Temperature Offset
+    total_offset:
+      name: Total Temperature Offset
+    background_temperature:
+      name: Scene Background Temperature
+    status:
+      name: Temperature Compensation Status
   calibrated_pixels:
     name: Sensor Calibrated Pixels
   reference_temperature:
@@ -92,13 +104,13 @@ button:
     name: Learn Empty Scene
     on_press:
       - lambda: id(thermal_array).learn_empty_scene();
+switch:
   - platform: template
-    name: Calibrate Thermal Temperature
-    on_press:
-      - lambda: |-
-          const float offset = id(thermal_array).calculate_temperature_offset();
-          if (std::isfinite(offset)) {
-            auto call = id(thermal_temperature_offset).make_call();
-            call.set_value(offset);
-            call.perform();
-          }
+    name: Automatic Temperature Compensation
+    id: automatic_temperature_compensation
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - lambda: id(thermal_array).set_auto_enabled(true);
+    turn_off_action:
+      - lambda: id(thermal_array).set_auto_enabled(false);

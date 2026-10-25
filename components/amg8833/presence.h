@@ -27,6 +27,7 @@ class PresenceEstimator {
     bool ready{false};
     uint8_t count{0};
     uint8_t instantaneous_count{0};
+    bool foreground{false};
   };
 
   Settings settings;
@@ -111,7 +112,7 @@ class PresenceEstimator {
       const float beta = 1.0f - std::exp(-dt / settings.background_tau_seconds);
       for (size_t i = 0; i < 64; ++i) background_[i] += beta * (smooth_[i] - background_[i]);
     }
-    return {true, true, count_, detected};
+    return {true, true, count_, detected, any_foreground};
   }
 
  protected:

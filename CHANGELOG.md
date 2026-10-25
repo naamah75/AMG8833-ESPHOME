@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.10.1-beta.2
+
+- Replace the default one-shot calibration button with continuous, bounded scene normalization against the selected reference.
+- Add an enable switch and separate automatic/total offsets, median background and status entities.
+- Hold correction on invalid reference or detected foreground; retain manual trim separately.
+- Add native convergence, hold, disable and clamp tests.
+- Correct temperature unit encoding in YAML/schema.
+
 ## 2026.10.1-beta.1
 
 - Add explicit empty-scene learning, stationary warm-target presence estimates and connected-region counting with confirmation/release delays.
