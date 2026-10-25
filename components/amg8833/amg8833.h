@@ -123,7 +123,7 @@ class AMG8833 : public PollingComponent, public i2c::I2CDevice {
     if (presence_ != nullptr) presence_->invalidate_state();
     if (people_count_ != nullptr) people_count_->publish_state(NAN);
     if (presence_ready_ != nullptr) presence_ready_->publish_state(false);
-    if (calibrated_pixels_ != nullptr) calibrated_pixels_->invalidate_state();
+    if (calibrated_pixels_ != nullptr) calibrated_pixels_->publish_state("");
   }
   PresenceEstimator estimator_;
   std::array<float, 64> last_frame_values_{};
